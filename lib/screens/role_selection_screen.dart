@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:serve_ease_new/screens/auth/customer_login_screen.dart';
 import 'package:serve_ease_new/screens/auth/service_provider_login_screen.dart';
+import 'package:serve_ease_new/screens/auth/admin_login_screen.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -107,9 +108,12 @@ class RoleSelectionScreen extends StatelessWidget {
                         'I\'m an Admin',
                         'Manage platform',
                         Icons.admin_panel_settings_outlined,
-                        () {
-                          // TODO: Navigate to admin login
-                        },
+                        () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminLoginScreen(),
+                          ),
+                        ),
                       ),
                     ],
                   ),

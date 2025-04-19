@@ -77,26 +77,23 @@ class _ServiceProviderRegisterScreenState extends State<ServiceProviderRegisterS
       await userCredential.user!.sendEmailVerification();
 
       final serviceProvider = ServiceProviderModel(
-        uid: userCredential.user!.uid,
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
+        providerId: userCredential.user!.uid,  // Changed from provider_id to providerId
+        name: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        aadharNumber: _aadharController.text.trim(),
-        address: {
-          'place': _placeController.text.trim(),
-          'city': _cityController.text.trim(),
-          'state': _stateController.text.trim(),
-        },
-        gender: _selectedGender,
+        adhar: _aadharController.text.trim(),
+        address: '${_placeController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()}',
+        gender: _selectedGender.toString().split('.').last,
         age: int.parse(_ageController.text.trim()),
         about: _aboutController.text.trim(),
         services: _selectedServices,
+        approvalStatus: 'PENDING',
+        active: false,
         experience: int.parse(_experienceController.text.trim()),
       );
 
       await FirebaseFirestore.instance
-          .collection('service_providers')
+          .collection('serviceProviders')  // Changed from 'service_providers'
           .doc(userCredential.user!.uid)
           .set(serviceProvider.toMap());
 

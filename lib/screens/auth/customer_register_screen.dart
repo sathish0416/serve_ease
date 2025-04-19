@@ -71,19 +71,17 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
         password: _passwordController.text,
       );
 
-      // Store additional user data in Firestore
-      // In the _registerCustomer method, replace the Firestore set operation with:
+      // Create customer model with updated schema
       final customerModel = CustomerModel(
-        uid: userCredential.user!.uid,  // Changed from id to uid
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
+        customerId: userCredential.user!.uid,
+        name: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         email: _emailController.text.trim(),
-        phone: _phoneController.text,
-        address: {
-          'place': _placeController.text,
-          'city': _cityController.text,
-          'pinCode': _pinCodeController.text,
-        },
+        phone: _phoneController.text.trim(),
+        address: '${_placeController.text.trim()}, ${_cityController.text.trim()}, ${_pinCodeController.text.trim()}',
+        isVerified: false,
+        registrationDate: DateTime.now().toIso8601String(),
+        bookings: [],
+        role: 'customer',
       );
       
       await FirebaseFirestore.instance
@@ -93,13 +91,10 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
       // Navigate to customer dashboard
       if (mounted) {
-        // Then replace the TODO comment in _registerCustomer method with:
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const CustomerDashboardScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const CustomerDashboardScreen()),
+        );
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;

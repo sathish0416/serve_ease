@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:serve_ease_new/models/customer_model.dart';
 import 'package:serve_ease_new/screens/auth/customer_register_screen.dart';
 import 'package:serve_ease_new/screens/auth/complete_profile_screen.dart';
 import 'package:serve_ease_new/screens/auth/forgot_password_screen.dart';  // Add this import
@@ -32,6 +33,19 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
+      // Check if user exists in Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'No customer profile found.',
+        );
+      }
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -81,11 +95,25 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
           .get();
 
       if (!userDoc.exists) {
+        // Create initial customer model for Google sign-in
+        final customerModel = CustomerModel(
+          customerId: userCredential.user!.uid,
+          name: userCredential.user!.displayName ?? '',
+          email: userCredential.user!.email ?? '',
+          phone: '',
+          address: '',
+          isVerified: false,
+          registrationDate: DateTime.now().toIso8601String(),
+          bookings: [],
+        );
+
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => CompleteProfileScreen(user: userCredential.user!),
+              builder: (context) => CompleteProfileScreen(
+                user: userCredential.user!,  // Removed initialData parameter
+              ),
             ),
           );
         }

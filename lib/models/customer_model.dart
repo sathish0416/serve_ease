@@ -1,48 +1,60 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CustomerModel {
-  final String uid;
-  final String firstName;
-  final String lastName;
+  final String customerId;  // Changed from uid
+  final String name;       // Combined firstName and lastName
   final String email;
   final String phone;
-  final Map<String, String> address;
-  final String role;
-  final DateTime createdAt;
+  final String address;    // Changed from Map to String
+  final bool isVerified;   // Added
+  final String registrationDate;  // Changed from DateTime
+  final List<String> bookings;    // Added
+  final String role;      // Kept from existing implementation
 
   CustomerModel({
-    required this.uid,
-    required this.firstName,
-    required this.lastName,
+    required this.customerId,
+    required this.name,
     required this.email,
     required this.phone,
     required this.address,
+    this.isVerified = false,
+    String? registrationDate,
+    this.bookings = const [],
     this.role = 'customer',
-    DateTime? createdAt,
-  }) : this.createdAt = createdAt ?? DateTime.now();
+  }) : this.registrationDate = registrationDate ?? DateTime.now().toIso8601String();
 
   Map<String, dynamic> toMap() {
     return {
-      'firstName': firstName,
-      'lastName': lastName,
+      'customer_id': customerId,
+      'name': name,
       'email': email,
       'phone': phone,
       'address': address,
+      'isVerified': isVerified,
+      'registrationDate': registrationDate,
+      'bookings': bookings,
       'role': role,
-      'createdAt': createdAt,
     };
   }
 
-  factory CustomerModel.fromMap(Map<String, dynamic> map, String uid) {
+  factory CustomerModel.fromMap(Map<String, dynamic> map) {
     return CustomerModel(
-      uid: uid,
-      firstName: map['firstName'] ?? '',
-      lastName: map['lastName'] ?? '',
+      customerId: map['customer_id'] ?? '',
+      name: map['name'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
-      address: Map<String, String>.from(map['address'] ?? {}),
+      address: map['address'] ?? '',
+      isVerified: map['isVerified'] ?? false,
+      registrationDate: map['registrationDate'],
+      bookings: List<String>.from(map['bookings'] ?? []),
       role: map['role'] ?? 'customer',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
     );
+  }
+
+  @override
+  String toString() {
+    return 'CustomerModel{customerId: $customerId, name: $name, email: $email, '
+        'phone: $phone, address: $address, isVerified: $isVerified, '
+        'registrationDate: $registrationDate, bookings: $bookings, role: $role}';
   }
 }

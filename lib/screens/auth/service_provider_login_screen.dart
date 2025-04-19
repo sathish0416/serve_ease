@@ -45,9 +45,11 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         );
       }
 
-      final isApproved = serviceProviderDoc.data()?['isApproved'] ?? false;
+      // Updated to check approvalStatus field
+      final approvalStatus = serviceProviderDoc.data()?['approvalStatus'] ?? 'PENDING';
+      final isActive = serviceProviderDoc.data()?['active'] ?? false;
 
-      if (!isApproved) {
+      if (approvalStatus != 'ACCEPTED' || !isActive) {
         // Navigate to waiting approval screen
         if (mounted) {
           Navigator.pushReplacement(
@@ -58,7 +60,7 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         }
       }
 
-      // If approved, navigate to dashboard
+      // If approved and active, navigate to dashboard
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -92,11 +94,9 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       
       if (mounted) {
-        // TODO: Check with backend if user is approved
-        // For now, always navigate to waiting screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+          MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
         );
       }
     } catch (e) {

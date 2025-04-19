@@ -18,7 +18,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _phoneController = TextEditingController();
   final _placeController = TextEditingController();
   final _cityController = TextEditingController();
-  final _pinCodeController = TextEditingController();
+  final _stateController = TextEditingController();  // Added state controller
   bool _isLoading = false;
 
   Future<void> _completeProfile() async {
@@ -27,23 +27,22 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final customerModel = CustomerModel(
-        uid: widget.user.uid,  // Changed from id to uid
-        firstName: widget.user.displayName?.split(' ').first ?? '',
-        lastName: widget.user.displayName?.split(' ').last ?? '',
-        email: widget.user.email!,
-        phone: _phoneController.text,
-        address: {
-          'place': _placeController.text,
-          'city': _cityController.text,
-          'pinCode': _pinCodeController.text,
-        },
+      final customer = CustomerModel(
+        customerId: widget.user.uid,
+        name: widget.user.displayName ?? '',  // Use displayName from Google
+        email: widget.user.email ?? '',
+        phone: _phoneController.text.trim(),
+        address: '${_placeController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()}',
+        isVerified: false,
+        registrationDate: DateTime.now().toIso8601String(),
+        bookings: [],
+        role: 'customer',
       );
 
       await FirebaseFirestore.instance
           .collection('customers')
           .doc(widget.user.uid)
-          .set(customerModel.toMap());
+          .set(customer.toMap());  // Changed customerModel to customer
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -61,6 +60,15 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _placeController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    super.dispose();
   }
 
   @override
