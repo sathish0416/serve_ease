@@ -2,12 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:serve_ease_new/utils/constants.dart';  // Add this import
 import 'package:serve_ease_new/models/customer_model.dart';
 import 'package:serve_ease_new/screens/auth/customer_register_screen.dart';
 import 'package:serve_ease_new/screens/auth/complete_profile_screen.dart';
-import 'package:serve_ease_new/screens/auth/forgot_password_screen.dart';  // Add this import
-import 'package:serve_ease_new/screens/dashboards/customer_dashboard_screen.dart';
+import 'package:serve_ease_new/screens/auth/forgot_password_screen.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
+import 'package:serve_ease_new/screens/customer/customer_dashboard_screen.dart';
 
 class CustomerLoginScreen extends StatefulWidget {
   const CustomerLoginScreen({super.key});
@@ -48,27 +49,23 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
       }
 
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const CustomerDashboardScreen()),
+          MaterialPageRoute(
+            builder: (context) => const CustomerDashboardScreen(),
+          ),
+          (route) => false,
         );
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      if (e.code == 'user-not-found') {
-        errorMessage = 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Wrong password provided.';
-      } else {
-        errorMessage = 'Login failed. Please try again.';
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to sign in: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,24 +75,45 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
+      // Initialize GoogleSignIn with scopes
+      final googleSignIn = GoogleSignIn(
+        scopes: [
+          'email',
+          'profile',
+        ],
+      );
 
+      // Sign out first to ensure clean state
+      await googleSignIn.signOut();
+      print('Starting Google Sign In...'); // Debug print
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        print('Google Sign In cancelled by user'); // Debug print
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      print('Getting Google Auth...'); // Debug print
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      print('Got Google Auth. Creating credential...'); // Debug print
+      
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      print('Signing in to Firebase...'); // Debug print
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      print('Firebase Sign In successful'); // Debug print
       
+      // Check if user exists in Firestore
       final userDoc = await FirebaseFirestore.instance
           .collection('customers')
           .doc(userCredential.user!.uid)
           .get();
 
       if (!userDoc.exists) {
-        // Create initial customer model for Google sign-in
         final customerModel = CustomerModel(
           customerId: userCredential.user!.uid,
           name: userCredential.user!.displayName ?? '',
@@ -107,33 +125,30 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
           bookings: [],
         );
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CompleteProfileScreen(
-                user: userCredential.user!,  // Removed initialData parameter
-              ),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CustomerDashboardScreen(),
-            ),
-          );
-        }
+        await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(userCredential.user!.uid)
+            .set(customerModel.toMap());
+      }
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CustomerDashboardScreen(),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to sign in with Google. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to sign in with Google: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

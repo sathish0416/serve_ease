@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:serve_ease_new/screens/admin/provider_details_screen.dart';
+import 'package:serve_ease_new/screens/role_selection_screen.dart';
 
 class ProvidersScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -165,13 +166,13 @@ class _ProvidersScreenState extends State<ProvidersScreen>
   }
 
   Widget _buildProviderCard(dynamic provider, {bool isPending = false}) {
-    // Add debug print to see what we're receiving
-    print('Provider data: $provider');
+    // Format services list
+    final services = provider['services'] != null 
+        ? (provider['services'] as List).join(', ')
+        : provider['serviceType'] ?? 'N/A';
     
-    // Change how we access the ID
-    final String? providerId = provider['provider_id']?.toString(); // Try 'id' instead of '_id'
-    
-    //print('Provider ID: $providerId'); // Debug print for ID
+    // Get provider ID
+    final String? providerId = provider['provider_id']?.toString();
     
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -188,7 +189,7 @@ class _ProvidersScreenState extends State<ProvidersScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(provider['email'] ?? 'N/A'),
-            Text('Service: ${provider['serviceType'] ?? 'N/A'}'),
+            Text('Service: $services'),
           ],
         ),
         trailing: isPending
@@ -197,21 +198,24 @@ class _ProvidersScreenState extends State<ProvidersScreen>
                 children: [
                   IconButton(
                     icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: providerId != null 
-                      ? () async {
-                          print('Approving provider with ID: $providerId');
-                          await _handleApproval(providerId, true);
-                        }
-                      : null,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: _isLoading 
-                        ? null 
-                        : () async => await _handleApproval(providerId, false),
-                    ),
-                  ],
-                )
+                    onPressed: () async {
+                      if (providerId != null) {
+                        await _handleApproval(providerId, true);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red),
+                    onPressed: _isLoading 
+                      ? null 
+                      : () async {
+                          if (providerId != null) {
+                            await _handleApproval(providerId, false);
+                          }
+                        },
+                  ),
+                ],
+              )
             : IconButton(
                 icon: const Icon(Icons.info_outline),
                 onPressed: () {
@@ -239,6 +243,21 @@ class _ProvidersScreenState extends State<ProvidersScreen>
             Tab(text: 'Pending Approval'),
           ],
         ),
+        // In the AppBar actions where the logout button is defined
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RoleSelectionScreen(),
+                ),
+                (route) => false, // This removes all previous routes from the stack
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
