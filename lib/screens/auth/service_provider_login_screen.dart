@@ -27,55 +27,77 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
 
     setState(() => _isLoading = true);
     try {
+      // First attempt to sign in with Firebase Auth
       final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Check if user is approved
+      print('Firebase Auth successful. User ID: ${userCredential.user!.uid}');
+
+      // Then check the service provider document
       final serviceProviderDoc = await FirebaseFirestore.instance
           .collection('service_providers')
           .doc(userCredential.user!.uid)
           .get();
 
+      print('Checking Firestore document: ${serviceProviderDoc.exists}');
+      print('Document data: ${serviceProviderDoc.data()}');
+
       if (!serviceProviderDoc.exists) {
+        await FirebaseAuth.instance.signOut();
         throw FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'No service provider account found',
+          code: 'provider-not-found',
+          message: 'No service provider account found for this email',
         );
       }
 
-      // Updated to check approvalStatus field
-      final approvalStatus = serviceProviderDoc.data()?['approvalStatus'] ?? 'PENDING';
-      final isActive = serviceProviderDoc.data()?['active'] ?? false;
+      final data = serviceProviderDoc.data()!;
+      final approvalStatus = data['status'] ?? 'PENDING';
+      final isActive = data['isActive'] ?? false;
 
-      if (approvalStatus != 'ACCEPTED' || !isActive) {
-        // Navigate to waiting approval screen
+      print('Status: $approvalStatus, Active: $isActive');
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+
+      if (approvalStatus == 'APPROVED' && isActive == true) {
         if (mounted) {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+            MaterialPageRoute(
+              builder: (context) => const ServiceProviderDashboardScreen(),
+            ),
+            (route) => false,
           );
-          return;
+        }
+      } else {
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WaitingApprovalScreen(),
+            ),
+            (route) => false,
+          );
         }
       }
-
-      // If approved and active, navigate to dashboard
+    } catch (e) {
+      print('Error during login: $e');
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is FirebaseAuthException 
+                ? e.message ?? 'Authentication failed'
+                : 'An error occurred during login',
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message ?? 'An error occurred'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
