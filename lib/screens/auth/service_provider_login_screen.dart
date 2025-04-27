@@ -7,6 +7,7 @@ import 'package:serve_ease_new/screens/dashboards/service_provider_dashboard_scr
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/screens/auth/waiting_approval_screen.dart';
+import 'package:serve_ease_new/screens/auth/complete_profile/provider_complete_profile_screen.dart';
 
 class ServiceProviderLoginScreen extends StatefulWidget {
   const ServiceProviderLoginScreen({super.key});
@@ -32,9 +33,8 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         password: _passwordController.text.trim(),
       );
 
-      // Check if user is approved
       final serviceProviderDoc = await FirebaseFirestore.instance
-          .collection('service_providers')
+          .collection('serviceProviders')
           .doc(userCredential.user!.uid)
           .get();
 
@@ -45,32 +45,37 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         );
       }
 
-      // Updated to check approvalStatus field
-      final approvalStatus = serviceProviderDoc.data()?['approvalStatus'] ?? 'PENDING';
-      final isActive = serviceProviderDoc.data()?['active'] ?? false;
+      final data = serviceProviderDoc.data()!;
+      final status = data['approvalStatus']; // Changed from 'status' to 'approvalStatus'
 
-      if (approvalStatus != 'ACCEPTED' || !isActive) {
-        // Navigate to waiting approval screen
+      print('Provider Status: $status'); // Debug print
+
+      if (status == 'APPROVED') {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
+          );
+        }
+      } else if (status == 'PENDING') {
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
           );
-          return;
         }
-      }
-
-      // If approved and active, navigate to dashboard
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
+      } else if (status == 'REJECTED') {
+        throw FirebaseAuthException(
+          code: 'account-rejected',
+          message: 'Your account has been rejected. Please contact support.',
         );
       }
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message ?? 'An error occurred'),
+          content: Text(e is FirebaseAuthException ? (e.message ?? 'An error occurred') : 'An error occurred'),
           backgroundColor: Colors.red,
         ),
       );
@@ -93,6 +98,48 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
 
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       
+      // Check if user exists in service_providers collection
+      final serviceProviderDoc = await FirebaseFirestore.instance
+          .collection('service_providers')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (!serviceProviderDoc.exists) {
+        // New user - Navigate to provider complete profile screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProviderCompleteProfileScreen(
+                user: userCredential.user!,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Existing user - Check status
+      // In _handleGoogleSignIn method
+      final data = serviceProviderDoc.data()!;
+      final status = data['approvalStatus'] ?? 'PENDING'; // Changed from 'status' to 'approvalStatus'
+
+      if (status == 'PENDING') {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+          );
+        }
+        return;
+      } else if (status == 'REJECTED') {
+        throw FirebaseAuthException(
+          code: 'account-rejected',
+          message: 'Your account has been rejected. Please contact support.',
+        );
+      }
+
+      // Approved user - Navigate to dashboard
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -100,9 +147,11 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to sign in with Google'),
+        SnackBar(
+          content: Text(e is FirebaseAuthException ? (e.message ?? 'An error occurred') : 'Failed to sign in with Google'),
           backgroundColor: Colors.red,
         ),
       );

@@ -27,7 +27,7 @@ class _ServiceProviderDashboardScreenState extends State<ServiceProviderDashboar
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final doc = await FirebaseFirestore.instance
-            .collection('service_providers')
+            .collection('serviceProviders')
             .doc(user.uid)
             .get();
         

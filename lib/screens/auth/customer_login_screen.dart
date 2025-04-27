@@ -5,7 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:serve_ease_new/utils/constants.dart';  // Add this import
 import 'package:serve_ease_new/models/customer_model.dart';
 import 'package:serve_ease_new/screens/auth/customer_register_screen.dart';
-import 'package:serve_ease_new/screens/auth/complete_profile_screen.dart';
+//import 'package:serve_ease_new/screens/auth/complete_profile_screen.dart';
 import 'package:serve_ease_new/screens/auth/forgot_password_screen.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
 import 'package:serve_ease_new/screens/customer/customer_dashboard_screen.dart';
