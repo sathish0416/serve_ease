@@ -1,14 +1,16 @@
+import 'package:flutter/material.dart';
+import 'package:serve_ease_new/screens/admin/admin_customers_screen.dart';
 class AdminDashboardModel {
   final int totalProviders;
   final int pendingProviders;
   final int totalCustomers;
-  final int totalBookings;  // Changed from activeBookings
+  final int totalBookings;
 
   AdminDashboardModel({
     required this.totalProviders,
     required this.pendingProviders,
     required this.totalCustomers,
-    required this.totalBookings,  // Changed from activeBookings
+    required this.totalBookings,
   });
 
   Map<String, dynamic> toMap() {
@@ -16,7 +18,7 @@ class AdminDashboardModel {
       'totalProviders': totalProviders,
       'pendingProviders': pendingProviders,
       'totalCustomers': totalCustomers,
-      'totalBookings': totalBookings,  // Changed from activeBookings
+      'totalBookings': totalBookings,
     };
   }
 
@@ -25,7 +27,7 @@ class AdminDashboardModel {
       totalProviders: map['totalProviders'] ?? 0,
       pendingProviders: map['pendingProviders'] ?? 0,
       totalCustomers: map['totalCustomers'] ?? 0,
-      totalBookings: map['totalBookings'] ?? 0,  // Changed from activeBookings
+      totalBookings: map['totalBookings'] ?? 0,
     );
   }
 }

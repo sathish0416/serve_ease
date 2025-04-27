@@ -22,6 +22,10 @@ class _ProvidersScreenState extends State<ProvidersScreen>
   List<dynamic> _pendingProviders = [];
   TextEditingController _searchController = TextEditingController();
 
+  // Add these properties
+  List<dynamic> _filteredAllProviders = [];
+  List<dynamic> _filteredPendingProviders = [];
+
   @override
   void initState() {
     super.initState();
@@ -33,13 +37,42 @@ class _ProvidersScreenState extends State<ProvidersScreen>
     _fetchProviders();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-    super.dispose();
+  // Add this method to filter providers
+  // Update the filter providers method
+  void _filterProviders(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredAllProviders = List.from(_allProviders);
+        _filteredPendingProviders = List.from(_pendingProviders);
+      } else {
+        query = query.toLowerCase();
+        _filteredAllProviders = _allProviders.where((provider) {
+          final name = (provider['name'] ?? '').toString().toLowerCase();
+          final services = provider['services'] != null 
+              ? (provider['services'] as List).map((s) => s.toString().toLowerCase()).toList()
+              : [(provider['serviceType'] ?? '').toString().toLowerCase()];
+          
+          // Check if query matches name or any of the services
+          return name.contains(query) || 
+                 services.any((service) => service.contains(query));
+        }).toList();
+
+        _filteredPendingProviders = _pendingProviders.where((provider) {
+          final name = (provider['name'] ?? '').toString().toLowerCase();
+          final services = provider['services'] != null 
+              ? (provider['services'] as List).map((s) => s.toString().toLowerCase()).toList()
+              : [(provider['serviceType'] ?? '').toString().toLowerCase()];
+          
+          // Check if query matches name or any of the services
+          return name.contains(query) || 
+                 services.any((service) => service.contains(query));
+        }).toList();
+      }
+    });
   }
 
+  // Update the _fetchProviders method
+  // Keep this version of _fetchProviders
   Future<void> _fetchProviders() async {
     setState(() => _isLoading = true);
 
@@ -72,6 +105,9 @@ class _ProvidersScreenState extends State<ProvidersScreen>
       setState(() {
         _allProviders = json.decode(responses[0].body);
         _pendingProviders = json.decode(responses[1].body);
+        // Initialize filtered lists
+        _filteredAllProviders = List.from(_allProviders);
+        _filteredPendingProviders = List.from(_pendingProviders);
         _isLoading = false;
         _error = '';
       });
@@ -84,6 +120,15 @@ class _ProvidersScreenState extends State<ProvidersScreen>
     }
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Keep only ONE _fetchProviders method - DELETE the second one that appears after this
+  
   Future<void> _handleApproval(String? providerId, bool approve) async {
     if (providerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -288,10 +333,7 @@ class _ProvidersScreenState extends State<ProvidersScreen>
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onChanged: (value) {
-                          // TODO: Implement search functionality
-                          setState(() {});
-                        },
+                        onChanged: _filterProviders,
                       ),
                     ),
                     Expanded(
@@ -302,19 +344,18 @@ class _ProvidersScreenState extends State<ProvidersScreen>
                           RefreshIndicator(
                             onRefresh: _fetchProviders,
                             child: ListView.builder(
-                              itemCount: _allProviders.length,
-                              itemBuilder: (context, index) => _buildProviderCard(_allProviders[index]),
+                              itemCount: _filteredAllProviders.length,
+                              itemBuilder: (context, index) => 
+                                _buildProviderCard(_filteredAllProviders[index]),
                             ),
                           ),
                           // Pending Approval Tab
                           RefreshIndicator(
                             onRefresh: _fetchProviders,
                             child: ListView.builder(
-                              itemCount: _pendingProviders.length,
-                              itemBuilder: (context, index) => _buildProviderCard(
-                                _pendingProviders[index],
-                                isPending: true,
-                              ),
+                              itemCount: _filteredPendingProviders.length,
+                              itemBuilder: (context, index) => 
+                                _buildProviderCard(_filteredPendingProviders[index], isPending: true),
                             ),
                           ),
                         ],

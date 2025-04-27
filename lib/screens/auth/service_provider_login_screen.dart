@@ -28,24 +28,32 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
 
     setState(() => _isLoading = true);
     try {
+      // First attempt to sign in with Firebase Auth
       final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+
 
       final serviceProviderDoc = await FirebaseFirestore.instance
           .collection('serviceProviders')
           .doc(userCredential.user!.uid)
           .get();
 
+      print('Checking Firestore document: ${serviceProviderDoc.exists}');
+      print('Document data: ${serviceProviderDoc.data()}');
+
       if (!serviceProviderDoc.exists) {
+        await FirebaseAuth.instance.signOut();
         throw FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'No service provider account found',
+          code: 'provider-not-found',
+          message: 'No service provider account found for this email',
         );
       }
 
       final data = serviceProviderDoc.data()!;
+
       final status = data['approvalStatus']; // Changed from 'status' to 'approvalStatus'
 
       print('Provider Status: $status'); // Debug print
@@ -58,12 +66,27 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
           );
         }
       } else if (status == 'PENDING') {
+
         if (mounted) {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+            MaterialPageRoute(
+              builder: (context) => const ServiceProviderDashboardScreen(),
+            ),
+            (route) => false,
           );
         }
+      } else {
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WaitingApprovalScreen(),
+            ),
+            (route) => false,
+          );
+        }
+
       } else if (status == 'REJECTED') {
         throw FirebaseAuthException(
           code: 'account-rejected',
@@ -81,6 +104,7 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+
     }
   }
 

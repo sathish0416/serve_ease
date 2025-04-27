@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
-// At the top of the file, add this import
 import 'package:serve_ease_new/screens/customer/service_providers_screen.dart';
+import 'package:serve_ease_new/screens/customer/customer_profile_screen.dart';
+import 'package:serve_ease_new/screens/customer/customer_bookings_screen.dart'; // Add this import
 
 class CustomerDashboardScreen extends StatefulWidget {
   const CustomerDashboardScreen({super.key});
@@ -110,6 +111,25 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           setState(() {
             _selectedIndex = index;
           });
+
+          switch (index) {
+            case 1: // Bookings tab
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CustomerBookingsScreen(),
+                ),
+              );
+              break;
+            case 2: // Profile tab
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CustomerProfileScreen(),
+                ),
+              );
+              break;
+          }
         },
         items: const [
           BottomNavigationBarItem(
