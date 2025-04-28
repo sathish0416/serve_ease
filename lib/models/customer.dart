@@ -2,18 +2,20 @@ class Customer {
   final String customerId;
   final String name;
   final String email;
-  final String? phone;
-  final String? address;
-  final String registrationDate;
+  final String phone;
+  final String address;
+  final DateTime registrationDate;
+  final List<dynamic> bookings;
   final bool verified;
 
   Customer({
     required this.customerId,
     required this.name,
     required this.email,
-    this.phone,
-    this.address,
+    required this.phone,
+    required this.address,
     required this.registrationDate,
+    required this.bookings,
     required this.verified,
   });
 
@@ -22,9 +24,10 @@ class Customer {
       customerId: json['customer_id'],
       name: json['name'],
       email: json['email'],
-      phone: json['phone'],
-      address: json['address'],
-      registrationDate: json['registrationDate'],
+      phone: json['phone'] ?? '',
+      address: json['address'] ?? '',
+      registrationDate: DateTime.parse(json['registrationDate']),
+      bookings: json['bookings'] ?? [],
       verified: json['verified'] ?? false,
     );
   }

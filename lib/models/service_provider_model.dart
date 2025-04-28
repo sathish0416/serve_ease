@@ -32,54 +32,33 @@ class ServiceProviderModel {
     required this.age,
     required this.about,
     required this.services,
-    required this.experience,  // Added to constructor
-    this.approvalStatus = 'PENDING',
-    this.active = false,
-    this.averageRating = 0.0,
-    this.totalReviews = 0,
-    this.reviews,
+    required this.approvalStatus,
+    required this.active,
+    required this.experience,
+    this.averageRating = 0.0,  // Default value
+    this.totalReviews = 0,     // Default value
+    this.reviews,              // Optional field
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'provider_id': providerId,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'adhar': adhar,
-      'address': address,
-      'gender': gender,
-      'age': age,
-      'about': about,
-      'services': services,
-      'experience': experience,  // Added to map
-      'approvalStatus': approvalStatus,
-      'active': active,
-      'averageRating': averageRating,
-      'totalReviews': totalReviews,
-      'reviews': reviews?.map((review) => review.toMap()).toList(),
-    };
-  }
-
-  factory ServiceProviderModel.fromMap(Map<String, dynamic> map) {
+  factory ServiceProviderModel.fromJson(Map<String, dynamic> json) {
     return ServiceProviderModel(
-      providerId: map['provider_id'] ?? '',
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      phone: map['phone'] ?? '',
-      adhar: map['adhar'] ?? '',
-      address: map['address'] ?? '',
-      gender: map['gender'] ?? '',
-      age: map['age'] ?? 0,
-      about: map['about'] ?? '',
-      services: List<String>.from(map['services'] ?? []),
-      experience: map['experience'] ?? 0,  // Added to fromMap
-      approvalStatus: map['approvalStatus'] ?? 'PENDING',
-      active: map['active'] ?? false,
-      averageRating: (map['averageRating'] ?? 0.0).toDouble(),
-      totalReviews: map['totalReviews'] ?? 0,
-      reviews: map['reviews'] != null 
-          ? List<Review>.from(map['reviews']?.map((x) => Review.fromMap(x)))
+      providerId: json['_id'] ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      phone: json['phone'] ?? '',
+      adhar: json['adhar'] ?? '',
+      address: json['address'] ?? '',
+      gender: json['gender'] ?? '',
+      age: json['age'] ?? 0,
+      about: json['about'] ?? '',
+      services: List<String>.from(json['services'] ?? []),
+      approvalStatus: json['approvalStatus'] ?? 'PENDING',
+      active: json['active'] ?? false,
+      experience: json['experience'] ?? 0,
+      averageRating: (json['averageRating'] ?? 0.0).toDouble(),
+      totalReviews: json['totalReviews'] ?? 0,
+      reviews: json['reviews'] != null 
+          ? (json['reviews'] as List).map((r) => Review.fromMap(r as Map<String, dynamic>)).toList()
           : null,
     );
   }

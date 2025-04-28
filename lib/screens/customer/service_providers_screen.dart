@@ -3,10 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/screens/customer/provider_details_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:serve_ease_new/screens/customer/booking_screen.dart';
+import 'package:serve_ease_new/services/booking_service.dart';
+import 'package:serve_ease_new/widgets/booking_dialog.dart';
 
-class ServiceProvidersScreen extends StatelessWidget {
+class ServiceProvidersScreen extends StatefulWidget {
   final String serviceType;
-  final List<dynamic> providers;
+  final List<Map<String, dynamic>> providers;
 
   const ServiceProvidersScreen({
     super.key,
@@ -15,20 +17,57 @@ class ServiceProvidersScreen extends StatelessWidget {
   });
 
   @override
+  State<ServiceProvidersScreen> createState() => _ServiceProvidersScreenState();
+}
+
+class _ServiceProvidersScreenState extends State<ServiceProvidersScreen> {
+  Future<void> _handleBooking(String providerId) async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => BookingDialog(serviceType: widget.serviceType),
+    );
+
+    if (result != null) {
+      try {
+        await BookingService.createBooking(
+          providerId: providerId,
+          serviceType: widget.serviceType,
+          description: result['description'] ?? '',
+          scheduledDate: result['date'] ?? '',
+          scheduledTime: result['time'] ?? '',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Booking created successfully!')),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString())),
+          );
+        }
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('$serviceType Providers'),
+        title: Text('${widget.serviceType} Providers'),
       ),
-      body: providers.isEmpty
+      body: widget.providers.isEmpty
           ? const Center(
               child: Text('No service providers found'),
             )
           : ListView.builder(
-              itemCount: providers.length,
+              itemCount: widget.providers.length,
               padding: const EdgeInsets.all(16),
               itemBuilder: (context, index) {
-                final provider = providers[index];
+                final provider = widget.providers[index];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: InkWell(
@@ -38,7 +77,7 @@ class ServiceProvidersScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) => ProviderDetailsScreen(
                             provider: provider,
-                            serviceType: serviceType,
+                            serviceType: widget.serviceType,
                           ),
                         ),
                       );
@@ -93,17 +132,7 @@ class ServiceProvidersScreen extends StatelessWidget {
                           ],
                           const SizedBox(height: 12),
                           ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProviderDetailsScreen(
-                                    provider: provider,
-                                    serviceType: serviceType,
-                                  ),
-                                ),
-                              );
-                            },
+                            onPressed: () => _handleBooking(provider['_id']),
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 45),
                             ),

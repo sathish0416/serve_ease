@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
 import 'package:serve_ease_new/models/service_provider_model.dart';
 import 'package:serve_ease_new/screens/auth/waiting_approval_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ServiceProviderRegisterScreen extends StatefulWidget {
   const ServiceProviderRegisterScreen({super.key});
@@ -69,51 +69,45 @@ class _ServiceProviderRegisterScreenState extends State<ServiceProviderRegisterS
 
     setState(() => _isLoading = true);
     try {
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final response = await http.post(
+        Uri.parse('https://serveeaseserver-production.up.railway.app/api/service-providers/signup'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+          'phone': _phoneController.text.trim(),
+          'email': _emailController.text.trim(),
+          'adhar': _aadharController.text.trim(),
+          'address': '${_placeController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()}',
+          'gender': _selectedGender.toString().split('.').last,
+          'age': int.parse(_ageController.text.trim()),
+          'about': _aboutController.text.trim(),
+          'services': _selectedServices,
+          'experience': _experienceController.text.trim(),
+          'password': _passwordController.text,
+        }),
       );
 
-      await userCredential.user!.sendEmailVerification();
-
-      final serviceProvider = ServiceProviderModel(
-        providerId: userCredential.user!.uid,  // Changed from provider_id to providerId
-        name: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-        adhar: _aadharController.text.trim(),
-        address: '${_placeController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()}',
-        gender: _selectedGender.toString().split('.').last,
-        age: int.parse(_ageController.text.trim()),
-        about: _aboutController.text.trim(),
-        services: _selectedServices,
-        approvalStatus: 'PENDING',
-        active: false,
-        experience: int.parse(_experienceController.text.trim()),
-      );
-
-      await FirebaseFirestore.instance
-          .collection('serviceProviders')  // Changed from 'service_providers'
-          .doc(userCredential.user!.uid)
-          .set(serviceProvider.toMap());
-
-      // Sign out the user since they need approval
-      await FirebaseAuth.instance.signOut();
-
+      final responseData = json.decode(response.body);
+      
+      if (response.statusCode == 201) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+          );
+        }
+      } else {
+        throw Exception(responseData['message'] ?? 'Registration failed. Please try again.');
+      }
+    } catch (e) {
       if (mounted) {
-        // Navigate to waiting approval screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
         );
       }
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message ?? 'An error occurred'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

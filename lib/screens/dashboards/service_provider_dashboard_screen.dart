@@ -1,12 +1,12 @@
+// Update imports - remove Firebase related imports
 import 'package:flutter/material.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 import 'package:serve_ease_new/models/service_provider_model.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:serve_ease_new/models/booking_model.dart';
+import 'package:serve_ease_new/screens/auth/service_provider_login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ServiceProviderDashboardScreen extends StatefulWidget {
   const ServiceProviderDashboardScreen({super.key});
@@ -30,19 +30,25 @@ class _ServiceProviderDashboardScreenState extends State<ServiceProviderDashboar
   // Remove the second initState method that was added
   Future<void> _loadServiceProviderData() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final doc = await FirebaseFirestore.instance
-            .collection('serviceProviders')
-            .doc(user.uid)
-            .get();
-        
-        if (doc.exists) {
-          setState(() {
-            serviceProvider = ServiceProviderModel.fromMap(doc.data()!);
-            _isLoading = false;
-          });
-        }
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.get(
+        Uri.parse('https://serveeaseserver-production.up.railway.app/api/service-providers/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          serviceProvider = ServiceProviderModel.fromJson(data);
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load profile');
       }
     } catch (e) {
       print('Error loading service provider data: $e');
@@ -52,35 +58,131 @@ class _ServiceProviderDashboardScreenState extends State<ServiceProviderDashboar
 
   Future<void> _handleLogout() async {
     try {
-      await FirebaseAuth.instance.signOut();
+      // Get the token from shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.post(
+        Uri.parse('https://serveeaseserver-production.up.railway.app/api/service-providers/logout'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      // Clear token regardless of response
+      await prefs.remove('token');
+
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const ServiceProviderLoginScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to logout')),
+        const SnackBar(content: Text('Failed to logout. Please try again.')),
       );
     }
   }
 
   Future<void> _fetchBookings() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final response = await http.get(
-          Uri.parse('https://serveeaseserver-production.up.railway.app/api/bookings/customer/${user.uid}'),
-        );
+      final prefs = await SharedPreferences.getInstance();
+      final providerId = prefs.getString('providerId');
+      final token = prefs.getString('token');
 
-        if (response.statusCode == 200) {
-          final List<dynamic> data = json.decode(response.body);
-          setState(() {
-            bookings = data.map((json) => BookingModel.fromJson(json)).toList();
-          });
-        }
+      if (providerId == null) {
+        throw Exception('Provider ID not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('https://serveeaseserver-production.up.railway.app/api/bookings/provider/$providerId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          bookings = data.map((json) => BookingModel.fromJson(json)).toList();
+        });
+      } else {
+        throw Exception('Failed to fetch bookings');
       }
     } catch (e) {
       print('Error fetching bookings: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load bookings: ${e.toString()}')),
+      );
     }
+  }
+
+  // Update the booking list UI
+  Widget _buildBookingList() {
+    return ListView.builder(
+      itemCount: bookings.length,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemBuilder: (context, index) {
+        final booking = bookings[index];
+        return Card(
+          elevation: 2,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ListTile(
+            title: Text(booking.serviceType),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(booking.description),
+                Text(
+                  'Scheduled: ${booking.scheduledDate} at ${booking.scheduledTime}',
+                  style: const TextStyle(
+                    color: Color(0xFF1E3C72),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'Status: ${booking.status}',
+                  style: TextStyle(
+                    color: _getStatusColor(booking.status),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            isThreeLine: true,
+          ),
+        );
+      },
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'PENDING':
+        return Colors.orange;
+      case 'ACCEPTED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      case 'COMPLETED':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Add refresh functionality
+  Future<void> _refreshData() async {
+    setState(() => _isLoading = true);
+    await Future.wait([
+      _loadServiceProviderData(),
+      _fetchBookings(),
+    ]);
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -90,6 +192,12 @@ class _ServiceProviderDashboardScreenState extends State<ServiceProviderDashboar
         backgroundColor: const Color(0xFF1E3C72),
         title: const Text('ServeEase Provider', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -192,34 +300,7 @@ class _ServiceProviderDashboardScreenState extends State<ServiceProviderDashboar
                         ),
                       ),
                       Expanded(
-                        child: ListView.builder(
-                          itemCount: bookings.length,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemBuilder: (context, index) {
-                            final booking = bookings[index];
-                            return Card(
-                              elevation: 2,
-                              margin: const EdgeInsets.only(bottom: 16),
-                              child: ListTile(
-                                title: Text(booking.serviceType),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(booking.description),
-                                    Text(
-                                      'Scheduled: ${booking.scheduledDate} at ${booking.scheduledTime}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF1E3C72),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                isThreeLine: true,
-                              ),
-                            );
-                          },
-                        ),
+                        child: _buildBookingList(),
                       ),
                     ],
                   ),

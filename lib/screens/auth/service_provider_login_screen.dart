@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:serve_ease_new/screens/dashboards/service_provider_dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
 import 'package:serve_ease_new/screens/auth/service_provider_register_screen.dart';
@@ -34,7 +38,6 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
 
     setState(() => _isLoading = true);
     try {
-      // First make the API call
       final response = await http.post(
         Uri.parse('https://serveeaseserver-production.up.railway.app/api/service-providers/login'),
         headers: {'Content-Type': 'application/json'},
@@ -44,53 +47,55 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
         }),
       );
 
-      if (response.statusCode != 200) {
-        throw Exception('Login failed: ${response.body}');
-      }
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
-      final providerData = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print('Full response data: $responseData'); // Debug log
+        
+        // Store provider data
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', responseData['token']);
+        await prefs.setString('providerId', responseData['serviceProvider']['_id']);
+        await prefs.setString('providerData', json.encode(responseData['serviceProvider']));
 
-      // Now sign in with Firebase
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+        print('Token: ${responseData['token']}');
+        print('Provider ID: ${responseData['serviceProvider']['_id']}');
+        print('Provider Data: ${responseData['serviceProvider']}');
 
-      // Check the approval status from API response
-      final status = providerData['approvalStatus'];
-
-      if (status == 'APPROVED') {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
-          );
+        final status = responseData['serviceProvider']['approvalStatus'];
+        if (status == 'APPROVED') {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const ServiceProviderDashboardScreen()),
+            );
+          }
+        } else if (status == 'PENDING') {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
+            );
+          }
+        } else {
+          throw Exception('Account not approved');
         }
-      } else if (status == 'PENDING') {
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
-            (route) => false,
-          );
-        }
-      } else if (status == 'REJECTED') {
-        throw Exception('Your account has been rejected. Please contact support.');
       } else {
-        throw Exception('Invalid account status');
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['message'] ?? 'Login failed');
       }
     } catch (e) {
+      print('Login error: $e');
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.red,
         ),
       );
-      
-      // Sign out from Firebase if API login fails
-      await FirebaseAuth.instance.signOut();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

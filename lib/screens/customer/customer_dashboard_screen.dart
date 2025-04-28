@@ -183,23 +183,25 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             if (!mounted) return;
 
             if (response.statusCode == 200) {
-              final providers = json.decode(response.body);
+              final List<dynamic> providers = json.decode(response.body);
               print('Decoded providers: $providers');
               
-              if (providers is List) {
+              if (providers.isNotEmpty) {
                 if (mounted) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => ServiceProvidersScreen(
                         serviceType: services[index]['name'] as String,
-                        providers: providers,
+                        providers: providers.map((p) => p as Map<String, dynamic>).toList(),
                       ),
                     ),
                   );
                 }
               } else {
-                throw Exception('Invalid providers data format');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No service providers available')),
+                );
               }
             } else {
               throw Exception('Failed to fetch service providers');

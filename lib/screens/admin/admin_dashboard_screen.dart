@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:serve_ease_new/screens/admin/admin_customers_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:serve_ease_new/screens/admin/customers_list_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -10,7 +10,6 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-// In the class _AdminDashboardScreenState
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _totalCustomers = 0;
   bool _isLoading = true;
@@ -21,16 +20,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _fetchCustomersCount();
   }
 
-  void _navigateToCustomersScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AdminCustomersScreen(),
-      ),
-    ).then((_) => _fetchCustomersCount()); // Refresh count when returning
-  }
-
   Future<void> _fetchCustomersCount() async {
+    setState(() => _isLoading = true);
     try {
       final response = await http.get(
         Uri.parse('https://serveeaseserver-production.up.railway.app/api/admin/customers'),
@@ -38,15 +29,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
 
       if (response.statusCode == 200) {
-        final customers = json.decode(response.body);
+        final List<dynamic> customers = json.decode(response.body);
         setState(() {
           _totalCustomers = customers.length;
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error fetching customers: $e');
+      print('Error fetching customers count: $e');
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _navigateToCustomersScreen() async {
+    print('Attempting to navigate to customers screen...');
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CustomersListScreen(),
+        ),
+      );
+      print('Successfully navigated back from customers screen');
+      await _fetchCustomersCount();
+    } catch (e) {
+      print('Navigation error: $e');
     }
   }
 
@@ -56,6 +63,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         actions: [
+          _isLoading
+              ? const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () async {
+                    try {
+                      await _fetchCustomersCount();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Dashboard refreshed'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to refresh'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
           IconButton(
             icon: const Icon(Icons.people),
             onPressed: _navigateToCustomersScreen,
@@ -90,15 +129,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AdminCustomersScreen(),
-                            ),
-                          ).then((_) => _fetchCustomersCount());
+                          print('Card tapped');  // Debug print
+                          _navigateToCustomersScreen();
                         },
                         borderRadius: BorderRadius.circular(12),
-                        child: Container(
+                        child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
