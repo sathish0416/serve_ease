@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/screens/customer/booking_screen.dart';  // Add this import
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProviderDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> provider;
@@ -32,7 +32,7 @@ class _ProviderDetailsScreenState extends State<ProviderDetailsScreen> {
     try {
       final reviewsSnapshot = await FirebaseFirestore.instance
           .collection('reviews')
-          .where('providerId', isEqualTo: widget.provider['id'])
+          .where('providerId', isEqualTo: widget.provider['provider_id'])  // Changed from 'id' to 'provider_id'
           .get();
 
       setState(() {
@@ -93,11 +93,11 @@ class _ProviderDetailsScreenState extends State<ProviderDetailsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      widget.provider['name'],
+                                      widget.provider['name'] ?? 'N/A',
                                       style: Theme.of(context).textTheme.titleLarge,
                                     ),
-                                    Text(widget.provider['email']),
-                                    Text('Phone: ${widget.provider['phone']}'),
+                                    if (widget.provider['phone'] != null)
+                                      Text('Phone: ${widget.provider['phone']}'),
                                   ],
                                 ),
                               ),
@@ -109,14 +109,20 @@ class _ProviderDetailsScreenState extends State<ProviderDetailsScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Experience: ${widget.provider['experience']} years',
-                          ),
+                          if (widget.provider['experience'] != null)
+                            Text(
+                              'Experience: ${widget.provider['experience']} years',
+                            ),
+                          if (widget.provider['about'] != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'About: ${widget.provider['about']}',
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.star,
-                                  color: Colors.amber, size: 20),
+                              const Icon(Icons.star, color: Colors.amber, size: 20),
                               const SizedBox(width: 4),
                               Text(
                                 'Average Rating: ${_averageRating.toStringAsFixed(1)}',
@@ -190,17 +196,15 @@ class _ProviderDetailsScreenState extends State<ProviderDetailsScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
           onPressed: () {
-             Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => BookingScreen(
-                                        provider: widget.provider,
-                                        serviceType: widget.serviceType
-                                      ),
-                                    ),
-                                  );
-            
-            // TODO: Implement booking functionality
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookingScreen(
+                  provider: widget.provider,
+                  serviceType: widget.serviceType,
+                ),
+              ),
+            );
           },
           child: const Text('Book Now'),
         ),

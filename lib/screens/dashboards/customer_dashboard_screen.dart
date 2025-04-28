@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:serve_ease_new/screens/customer/customer_bookings_screen.dart';
+import 'package:serve_ease_new/screens/customer/service_providers_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class CustomerDashboardScreen extends StatefulWidget {
   const CustomerDashboardScreen({super.key});
@@ -186,23 +189,70 @@ class ServiceCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 40,
-            color: color,
+      child: InkWell(
+        onTap: () async {
+          try {
+            print('Fetching providers for service: $title');
+            final response = await http.get(
+              Uri.parse('https://serveeaseserver-production.up.railway.app/api/customers/service-providers/service?service=$title'),
+              headers: {'Content-Type': 'application/json'},
+            );
+
+            print('Response status code: ${response.statusCode}');
+            print('Response body: ${response.body}');
+
+            if (response.statusCode == 200) {
+              final providers = json.decode(response.body);
+              print('Decoded providers: $providers');
+              
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ServiceProvidersScreen(
+                      serviceType: title,
+                      providers: providers,
+                    ),
+                  ),
+                );
+              }
+            } else {
+              throw Exception('Failed to fetch service providers');
+            }
+          } catch (e) {
+            print('Error: $e');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: ${e.toString()}')),
+              );
+            }
+          }
+        },
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 40,
+                color: color,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

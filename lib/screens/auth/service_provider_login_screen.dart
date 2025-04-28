@@ -8,6 +8,12 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/screens/auth/waiting_approval_screen.dart';
 import 'package:serve_ease_new/screens/auth/complete_profile/provider_complete_profile_screen.dart';
+// Update these imports at the top of the file
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Remove or comment out this line since we're using the above import instead
+// import 'package:http/http.dart';
 
 class ServiceProviderLoginScreen extends StatefulWidget {
   const ServiceProviderLoginScreen({super.key});
@@ -28,35 +34,30 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
 
     setState(() => _isLoading = true);
     try {
-      // First attempt to sign in with Firebase Auth
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      // First make the API call
+      final response = await http.post(
+        Uri.parse('https://serveeaseserver-production.up.railway.app/api/service-providers/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Login failed: ${response.body}');
+      }
+
+      final providerData = json.decode(response.body);
+
+      // Now sign in with Firebase
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-
-
-      final serviceProviderDoc = await FirebaseFirestore.instance
-          .collection('serviceProviders')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      print('Checking Firestore document: ${serviceProviderDoc.exists}');
-      print('Document data: ${serviceProviderDoc.data()}');
-
-      if (!serviceProviderDoc.exists) {
-        await FirebaseAuth.instance.signOut();
-        throw FirebaseAuthException(
-          code: 'provider-not-found',
-          message: 'No service provider account found for this email',
-        );
-      }
-
-      final data = serviceProviderDoc.data()!;
-
-      final status = data['approvalStatus']; // Changed from 'status' to 'approvalStatus'
-
-      print('Provider Status: $status'); // Debug print
+      // Check the approval status from API response
+      final status = providerData['approvalStatus'];
 
       if (status == 'APPROVED') {
         if (mounted) {
@@ -66,45 +67,32 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
           );
         }
       } else if (status == 'PENDING') {
-
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(
-              builder: (context) => const ServiceProviderDashboardScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const WaitingApprovalScreen()),
             (route) => false,
           );
         }
-      } else {
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WaitingApprovalScreen(),
-            ),
-            (route) => false,
-          );
-        }
-
       } else if (status == 'REJECTED') {
-        throw FirebaseAuthException(
-          code: 'account-rejected',
-          message: 'Your account has been rejected. Please contact support.',
-        );
+        throw Exception('Your account has been rejected. Please contact support.');
+      } else {
+        throw Exception('Invalid account status');
       }
     } catch (e) {
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e is FirebaseAuthException ? (e.message ?? 'An error occurred') : 'An error occurred'),
+          content: Text(e.toString()),
           backgroundColor: Colors.red,
         ),
       );
+      
+      // Sign out from Firebase if API login fails
+      await FirebaseAuth.instance.signOut();
     } finally {
       if (mounted) setState(() => _isLoading = false);
-
     }
   }
 
@@ -124,7 +112,7 @@ class _ServiceProviderLoginScreenState extends State<ServiceProviderLoginScreen>
       
       // Check if user exists in service_providers collection
       final serviceProviderDoc = await FirebaseFirestore.instance
-          .collection('service_providers')
+          .collection('serviceProviders')  // Changed from 'service_providers' to 'serviceProviders'
           .doc(userCredential.user!.uid)
           .get();
 

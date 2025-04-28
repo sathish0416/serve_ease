@@ -2,101 +2,120 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';  // Add this import
 
-class CustomerBookingsScreen extends StatefulWidget {
+class CustomerBookingsScreen extends StatelessWidget {
   const CustomerBookingsScreen({super.key});
-
-  @override
-  State<CustomerBookingsScreen> createState() => _CustomerBookingsScreenState();
-}
-
-class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
-  List<dynamic> bookings = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchBookings();
-  }
-
-  Future<void> fetchBookings() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      print('Fetching bookings for user: ${user?.uid}');
-
-      if (user != null) {
-        final response = await http.get(
-          Uri.parse('https://serveeaseserver-production.up.railway.app/api/bookings/customer/${user.uid}'),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        );
-
-        print('API Response Status: ${response.statusCode}');
-        print('API Response Body: ${response.body}');
-
-        if (response.statusCode == 200) {
-          setState(() {
-            bookings = json.decode(response.body);
-            isLoading = false;
-          });
-        } else {
-          throw Exception('Failed to load bookings');
-        }
-      }
-    } catch (e) {
-      print('Error fetching bookings: $e');
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Bookings'),
-        backgroundColor: const Color(0xFF185ADB),
-        foregroundColor: Colors.white,
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : bookings.isEmpty
-              ? const Center(child: Text('No bookings found'))
-              : ListView.builder(
-                  itemCount: bookings.length,
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(  // Update the type
+        stream: FirebaseFirestore.instance
+            .collection('bookings')
+            .where('customerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+            // Remove the orderBy clause temporarily
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final bookings = snapshot.data?.docs ?? [];
+
+          // Sort the bookings in memory instead
+          bookings.sort((a, b) {
+            final aTimestamp = a.data()['timestamp'] as Timestamp?;
+            final bTimestamp = b.data()['timestamp'] as Timestamp?;
+            if (aTimestamp == null || bTimestamp == null) return 0;
+            return bTimestamp.compareTo(aTimestamp); // descending order
+          });
+
+          if (bookings.isEmpty) {
+            return const Center(child: Text('No bookings yet'));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: bookings.length,
+            itemBuilder: (context, index) {
+              final booking = bookings[index].data() as Map<String, dynamic>;
+              final status = booking['status'] ?? 'PENDING';
+              
+              Color statusColor;
+              switch (status) {
+                case 'ACCEPTED':
+                  statusColor = Colors.green;
+                  break;
+                case 'REJECTED':
+                  statusColor = Colors.red;
+                  break;
+                default:
+                  statusColor = Colors.orange;
+              }
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
                   padding: const EdgeInsets.all(16),
-                  itemBuilder: (context, index) {
-                    final booking = bookings[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: ListTile(
-                        title: Text(
-                          booking['service_type'] ?? 'Unknown Service',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF185ADB),
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(booking['description'] ?? ''),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Date: ${booking['scheduledDate'] ?? 'Not set'}\n'
-                              'Time: ${booking['scheduledTime'] ?? 'Not set'}',
-                              style: const TextStyle(color: Colors.grey),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            booking['providerName'] ?? 'Unknown Provider',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
-                        ),
-                        isThreeLine: true,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: statusColor),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: 8),
+                      Text('Service: ${booking['serviceType']}'),
+                      const SizedBox(height: 4),
+                      Text('Date: ${booking['date']}'),
+                      const SizedBox(height: 4),
+                      Text('Time: ${booking['time']}'),
+                      if (booking['notes']?.isNotEmpty == true) ...[
+                        const SizedBox(height: 8),
+                        Text('Notes: ${booking['notes']}'),
+                      ],
+                    ],
+                  ),
                 ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

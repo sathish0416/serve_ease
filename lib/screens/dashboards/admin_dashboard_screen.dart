@@ -33,7 +33,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final headers = {'Content-Type': 'application/json'};
       
       final responses = await Future.wait([
-        http.get(
+        http.get(   
           Uri.parse('https://serveeaseserver-production.up.railway.app/api/admin/service-providers'),
           headers: headers
         ),

@@ -3,6 +3,8 @@ import 'package:serve_ease_new/utils/app_theme.dart';
 import 'package:serve_ease_new/screens/customer/service_providers_screen.dart';
 import 'package:serve_ease_new/screens/customer/customer_profile_screen.dart';
 import 'package:serve_ease_new/screens/customer/customer_bookings_screen.dart'; // Add this import
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class CustomerDashboardScreen extends StatefulWidget {
   const CustomerDashboardScreen({super.key});
@@ -167,34 +169,73 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ServiceProvidersScreen(
-                serviceType: services[index]['name'] as String,
-              ),
-            ),
-          );
+        onTap: () async {
+          try {
+            print('Fetching providers for service: ${services[index]['name']}');
+            final response = await http.get(
+              Uri.parse('https://serveeaseserver-production.up.railway.app/api/customers/service-providers/service?service=${services[index]['name']}'),
+              headers: {'Content-Type': 'application/json'},
+            );
+
+            print('Response status code: ${response.statusCode}');
+            print('Response body: ${response.body}');
+
+            if (!mounted) return;
+
+            if (response.statusCode == 200) {
+              final providers = json.decode(response.body);
+              print('Decoded providers: $providers');
+              
+              if (providers is List) {
+                if (mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ServiceProvidersScreen(
+                        serviceType: services[index]['name'] as String,
+                        providers: providers,
+                      ),
+                    ),
+                  );
+                }
+              } else {
+                throw Exception('Invalid providers data format');
+              }
+            } else {
+              throw Exception('Failed to fetch service providers');
+            }
+          } catch (e) {
+            print('Error: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: ${e.toString()}')),
+              );
+            }
+          }
         },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              services[index]['icon'] as IconData,
-              size: 32,
-              color: Theme.of(context).primaryColor,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              services[index]['name'] as String,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                services[index]['icon'] as IconData,
+                size: 32,
+                color: Theme.of(context).primaryColor,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                services[index]['name'] as String,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

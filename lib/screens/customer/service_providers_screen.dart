@@ -2,177 +2,120 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:serve_ease_new/screens/customer/provider_details_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:serve_ease_new/screens/customer/booking_status_screen.dart';
-import 'package:serve_ease_new/screens/customer/booking_screen.dart';  // Add this import
+import 'package:serve_ease_new/screens/customer/booking_screen.dart';
 
-class ServiceProvidersScreen extends StatefulWidget {
+class ServiceProvidersScreen extends StatelessWidget {
   final String serviceType;
+  final List<dynamic> providers;
 
   const ServiceProvidersScreen({
     super.key,
     required this.serviceType,
+    required this.providers,
   });
-
-  @override
-  State<ServiceProvidersScreen> createState() => _ServiceProvidersScreenState();
-}
-
-class _ServiceProvidersScreenState extends State<ServiceProvidersScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _providers = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchProviders();
-  }
-
-  Future<void> _fetchProviders() async {
-    setState(() => _isLoading = true);
-    try {
-      print('Fetching providers for service: ${widget.serviceType}'); // Debug print
-
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('serviceProviders')
-          .where('services', arrayContains: widget.serviceType)
-          .where('approvalStatus', isEqualTo: 'APPROVED') // Changed from 'PENDING' to 'APPROVED'
-          .where('active', isEqualTo: true) // Added active check
-          .get();
-
-      print('Found ${querySnapshot.docs.length} providers'); // Debug print
-
-      setState(() {
-        _providers = querySnapshot.docs.map((doc) {
-          final data = doc.data();
-          print('Provider data: $data'); // Debug print
-          return {
-            'id': doc.id,
-            'name': data['name'] ?? 'N/A',
-            'email': data['email'] ?? 'N/A',
-            'phone': data['phone'] ?? 'N/A',
-            'rating': data['rating'] ?? 0,
-            'experience': data['experience'] ?? 0,
-          };
-        }).toList();
-      });
-    } catch (e) {
-      print('Error fetching providers: $e'); // Debug print
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load providers: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.serviceType} Providers'),
+        title: Text('$serviceType Providers'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _providers.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('No providers available'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _fetchProviders,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _providers.length,
-                  itemBuilder: (context, index) {
-                    final provider = _providers[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProviderDetailsScreen(
-                                provider: provider,
-                                serviceType: widget.serviceType,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
+      body: providers.isEmpty
+          ? const Center(
+              child: Text('No service providers found'),
+            )
+          : ListView.builder(
+              itemCount: providers.length,
+              padding: const EdgeInsets.all(16),
+              itemBuilder: (context, index) {
+                final provider = providers[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProviderDetailsScreen(
+                            provider: provider,
+                            serviceType: serviceType,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              const CircleAvatar(
-                                child: Icon(Icons.person),
+                              CircleAvatar(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                child: Text(
+                                  provider['name'][0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      provider['name'] ?? 'N/A',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(provider['email'] ?? 'N/A'),
-                                    Text('Experience: ${provider['experience'] ?? 0} years'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Modify the ElevatedButton onPressed in the build method
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
+                                child: Text(
+                                  provider['name'],
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  minimumSize: const Size(100, 36),
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => BookingScreen(
-                                        provider: provider,
-                                        serviceType: widget.serviceType,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: const Text(
-                                  'Book',
-                                  style: TextStyle(fontSize: 14),
                                 ),
                               ),
                             ],
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Experience: ${provider["experience"] ?? "Not specified"} years',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Services: ${(provider["services"] as List).join(", ")}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Phone: ${provider["phone"]}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          if (provider['about'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'About: ${provider["about"]}',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProviderDetailsScreen(
+                                    provider: provider,
+                                    serviceType: serviceType,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 45),
+                            ),
+                            child: const Text('Book Now'),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
