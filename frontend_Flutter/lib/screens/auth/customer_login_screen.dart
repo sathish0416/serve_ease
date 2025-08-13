@@ -324,6 +324,8 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                             return null;
                           },
                         ),
+                                            
+                        
                         // Add this after your password field and before the login button
                         TextButton(
                           onPressed: _handleForgotPassword,  // Update this line
@@ -444,3 +446,4 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     );
   }
 }
+ 

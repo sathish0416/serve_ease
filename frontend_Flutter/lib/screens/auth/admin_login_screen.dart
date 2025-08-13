@@ -3,6 +3,7 @@ import 'package:serve_ease_new/screens/dashboards/admin_dashboard_screen.dart';
 import 'package:serve_ease_new/utils/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';  // Move this import up here with other imports
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -13,13 +14,46 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();  // Change this line
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
+  final _captchaController = TextEditingController();
+  bool _isLoading = false;  // Add this line
+  bool _obscurePassword = true;  // Add this line
+  String _captchaText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _generateCaptcha();
+  }
+
+  void _generateCaptcha() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    _captchaText = String.fromCharCodes(
+      Iterable.generate(
+        6, // Length of captcha
+        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+      ),
+    );
+    setState(() {});
+  }
 
   Future<void> _handleAdminLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Add captcha validation
+    if (_captchaController.text.toUpperCase() != _captchaText) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid captcha code'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      _generateCaptcha(); 
+      _captchaController.clear();
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -27,7 +61,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         Uri.parse('https://serveeaseserver-production.up.railway.app/api/admin/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'username': _usernameController.text.trim(),  // Change this line
+          'username': _usernameController.text.trim(),  
           'password': _passwordController.text,
         }),
       );
@@ -180,6 +214,54 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             validator: (value) => 
                                 value?.isEmpty == true ? 'Required' : null,
                           ),
+                          const SizedBox(height: 20),
+                          // Add Captcha display
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _captchaText,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Courier',
+                                    letterSpacing: 8,
+                                    color: Color(0xFF185ADB),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  onPressed: _generateCaptcha,
+                                  color: const Color(0xFF185ADB),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // Add Captcha input field
+                          TextFormField(
+                            controller: _captchaController,
+                            decoration: InputDecoration(
+                              labelText: 'Captcha',
+                              hintText: 'Enter captcha code shown above',
+                              prefixIcon: const Icon(Icons.security_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter the captcha code';
+                              }
+                              return null;
+                            },
+                          ),
                           const SizedBox(height: 32),
                           SizedBox(
                             height: 56,
@@ -219,6 +301,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   void dispose() {
     _usernameController.dispose();  // This will now work correctly
     _passwordController.dispose();
+    _captchaController.dispose();
     super.dispose();
   }
 }
